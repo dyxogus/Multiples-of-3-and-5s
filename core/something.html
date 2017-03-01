@@ -1,0 +1,34 @@
+<script type="text/javascript"
+        src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+<script type="text/javascript">
+    alert("Hello");
+
+
+    function egg(spam) {
+        spam.width('260px');
+    }
+
+    alert("a");
+
+
+
+
+    $(window).load(function () {
+        setTimeout(function () {
+            alert('asd');
+            var mama = [
+                $('a#yui_3_17_2_2_1487372616361_4121'),
+                $('a#yui_3_17_2_2_1487372616361_4148'),
+                $('a#yui_3_17_2_2_1487372616361_4134'),
+                $('a#yui_3_17_2_2_1487372616361_4144')
+            ];
+
+            alert("b");
+            for (var i = 0; i < mama.length; i++) {
+                alert(i);
+                egg(mama[i]);
+            }
+        }, 2000);
+    });
+
+</script>

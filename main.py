@@ -17,13 +17,13 @@ from tests.const import ANSWERS
 
 problemHandler = \
     {
-        1 : q1,
-        3 : q3,
+        1: q1,
+        3: q3,
 
-        5 : q5,
-        6 : q6,
-        7 : q7,
-        8 : q8,
+        5: q5,
+        6: q6,
+        7: q7,
+        8: q8,
 
         13: q13,
 
@@ -95,5 +95,14 @@ def run():
         test()
 
 
+def experimental():
+    from os import listdir
+    for file in listdir('./core'):
+        print file
+
+
+    pass
+
 if __name__ == '__main__':
     run()
+    experimental()
