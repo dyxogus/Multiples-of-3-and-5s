@@ -2,6 +2,9 @@ import re
 import os
 from math import floor
 
+TOGGLE = True
+UPPER_LIMIT = 5 if TOGGLE else 9
+
 
 def string_to_2d_array(strings):
     return [[int(character) for character in line] for line in strings]
@@ -41,13 +44,22 @@ class SudokuBlock:
 
     def string(self, debug=False):
         if debug and len(self.possibilities):
+            if len(self.possibilities) == 9 and TOGGLE:
+                return '*'
+
+            elif len(self.possibilities) > UPPER_LIMIT:
+                return '!' + str(','.join(str(i)
+                    for i in set(range(1, 9 + 1)) - self.possibilities))
+
             return str('/'.join(str(i) for i in self.possibilities))
 
-        return str(self.value)
+        return str(self.value or '-')
 
     def __str__(self):
         return self.string()
 
+    def info(self):
+        return '{}({},{})'.format(self.value, self.x, self.y)
 
 class SudokuSolver:
     def __init__(self, grid=None):
@@ -68,7 +80,8 @@ class SudokuSolver:
         while self.queue:
             cell = self.queue.pop(0)
 
-            print('\nGetting Rid of {}'.format(cell.value))
+            print('\nGetting Rid of {}[{}, {}] Queue={}'.format(
+                cell.value, cell.x, cell.y, [a.info() for a in self.queue]))
             print(self.string(True))
 
             # Row iteration : see if slicing improves performance
@@ -88,15 +101,23 @@ class SudokuSolver:
                     cell_.discard_possibility(cell.value)
 
     def string(self, debug=False):
-        strings = []
-        for blocks in self.grid:
-            something = [block.string(debug).center(30) for block in blocks]
-            strings.append('|'.join(something))
+        GRID = 5
+        if debug:
+            GRID = 12 if TOGGLE else 18
+
+        strings = ['+' + '+'.join(['-' * (GRID * 3 + 2)] * 3) + '+']
+        for index, blocks in enumerate(self.grid):
+            strings += [
+                '|'+ '|'.join(block.string(debug).center(GRID) for block in blocks)
+                + '|']
+
+            if index % 3 == 2:
+                strings += ['+' + '+'.join(['-' * (GRID * 3 + 2)] * 3) + '+']
 
         return '\n'.join(strings)
 
     def __str__(self):
-        return self.string(True)
+        return self.string()
 
     def solved(self):
         return all(len(cell.possibilities) == 0
@@ -121,7 +142,7 @@ def q96():
                     solver.solve()
 
                     index, = last_match.groups()
-                    print('Grid {}: {}'.format(index, solver.solved()))
+                    print('\nGrid {}: {}'.format(index, solver.solved()))
                     print(str(solver) + '\n')
                     if not solver.solved():
                         return -1
