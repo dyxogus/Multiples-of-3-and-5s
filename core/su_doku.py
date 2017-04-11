@@ -15,14 +15,71 @@ def get_block(integer):
 
 
 class SudokuBlock:
-    def __init__(self, sudoku_grid, x, y, value):
-        self.sudoku_grid = sudoku_grid
+    def __init__(self, cells, block_type, suffix):
+        for cell in cells:
+            setattr(cell, block_type, self)
+
+        self.cells = cells
+        self.block_type = block_type
+        self.suffix = suffix
+
+    def solved(self):
+        return all(cell.solved() for cell in self.cells)
+        # if not self.solved and all(cell.solved() for cell in self.cells):
+        #     self.solved = True
+        #
+        # return self.solved
+
+    def discard_possibility(self, value):
+        for cell in self.cells:
+            cell.discard_possibility(value)
+
+    def check_if_solvable(self):
+        counts = {i: (0, None) for i in range(1, 10)}
+
+        for cell in self.cells:
+            for possibility in cell.possibilities:
+                counts[possibility] = counts[possibility][0] + 1, cell
+
+        one_remaining = [(number, cell) for number, (count, cell) in counts.items() if count == 1]
+        for number, cell in one_remaining:
+            if all(getattr(cell, block_name).check_if_possible(number) for block_name in ('column', 'row', 'square')):
+                print('X={}, Y={}, number={}'.format(str(self), cell.x, cell.y, number))
+                cell.solve(number)
+
+    def check_if_possible(self, value):
+        return all(cell.value != value for cell in self.cells)
+
+    def cells(self, solved=True):
+        return [cell for cell in self.cells if cell.solved() == solved]
+
+    def integrity_check(self):
+        unique_cells = set()
+        for cell in self.cells:
+            for unique_cell in unique_cells:
+                if cell.value == unique_cell.value:
+                    raise Exception('{} and {} are the same!'.format(
+                        cell, unique_cell
+                    ))
+
+            unique_cells.add(cell)
+
+    def __str__(self):
+        return '{} {}'.format(self.block_type, self.suffix)
+
+
+class SudokuCell:
+    """ Individual Cell that represents either a number or a list of possibilities
+    of the given Sudoku Grid"""
+
+    def __init__(self, solver, x, y, value=0):
+        self.solver = solver
         self.x = x
         self.y = y
 
         self.value = value
 
-        if self.value > 0:
+        if self.solved():
             self.possibilities = set()
         else:
             self.possibilities = set(range(1, 9 + 1))
@@ -30,17 +87,21 @@ class SudokuBlock:
     def discard_possibility(self, possibility):
         if possibility in self.possibilities:
             self.possibilities.remove(possibility)
-            self.solve()
+            self.check_if_solvable()
 
-    def solve(self):
+    def check_if_solvable(self):
         if len(self.possibilities) == 1:
-            assert self.value == 0, ""
-            self.value = self.possibilities.pop()
+            assert not self.solved(), ""
+            value = self.possibilities.pop()
+            self.solve(value)
 
-            self.sudoku_grid.queue.append(self)
+    def solve(self, value):
+        self.possibilities = []
+        self.value = value
+        self.solver.queue.append(self)
 
     def solved(self):
-        return self.value > 0
+        return self.value != 0
 
     def string(self, debug=False):
         if debug and len(self.possibilities):
@@ -61,13 +122,37 @@ class SudokuBlock:
     def info(self):
         return '{}({},{})'.format(self.value, self.x, self.y)
 
+
 class SudokuSolver:
     def __init__(self, grid=None):
         self.grid = [[
-            SudokuBlock(self, x, y, initial_value)
+            SudokuCell(self, x, y, initial_value)
             for x, initial_value in enumerate(line)]
             for y, line in enumerate(grid)
         ]
+
+        self.rows = [
+            SudokuBlock(rows, 'row', str(y))
+            for y, rows in enumerate(self.grid)
+        ]
+
+        self.columns = [
+            SudokuBlock([row[y] for row in self.grid], 'column', str(y))
+            for y, row in enumerate(self.grid)
+        ]
+
+        self.squares = []
+        for y in [0, 3, 6]:
+            row = []
+            for x in [0, 3, 6]:
+                square = []
+                for i in range(3):
+                    for j in range(3):
+                        square.append(self.grid[x + i][y + j])
+
+                row.append(SudokuBlock(square, 'square', '{},{}'.format(int(x / 3), int(y / 3))))
+
+            self.squares.append(row)
 
         self.queue = []
         self.update()
@@ -77,6 +162,7 @@ class SudokuSolver:
             for cell in blocks if cell.solved()]
 
     def solve(self):
+        print('Clear Queue')
         while self.queue:
             cell = self.queue.pop(0)
 
@@ -84,21 +170,25 @@ class SudokuSolver:
                 cell.value, cell.x, cell.y, [a.info() for a in self.queue]))
             print(self.string(True))
 
-            # Row iteration : see if slicing improves performance
-            for block in self.grid[cell.y]:
-                block.discard_possibility(cell.value)
-
-            # Column iteration
-            for blocks in self.grid:
-                blocks[cell.x].discard_possibility(cell.value)
+            self.rows[cell.y].discard_possibility(cell.value)
+            self.columns[cell.x].discard_possibility(cell.value)
 
             # Cell iteration
             x_bound = get_block(cell.x)
             y_bound = get_block(cell.y)
 
-            for blocks in self.grid[y_bound * 3:y_bound * 3 + 3]:
-                for cell_ in blocks[x_bound * 3:x_bound * 3 + 3]:
-                    cell_.discard_possibility(cell.value)
+            self.squares[x_bound][y_bound].discard_possibility(cell.value)
+
+        if not self.solved():
+            self.check_if_solvable(self.rows)
+            self.check_if_solvable(self.columns)
+            self.check_if_solvable([a for square in self.squares for a in square])
+            self.solve()
+
+    @staticmethod
+    def check_if_solvable(blocks):
+        for block in blocks:
+            block.check_if_solvable()
 
     def string(self, debug=False):
         GRID = 5
@@ -108,7 +198,7 @@ class SudokuSolver:
         strings = ['+' + '+'.join(['-' * (GRID * 3 + 2)] * 3) + '+']
         for index, blocks in enumerate(self.grid):
             strings += [
-                '|'+ '|'.join(block.string(debug).center(GRID) for block in blocks)
+                '|' + '|'.join(block.string(debug).center(GRID) for block in blocks)
                 + '|']
 
             if index % 3 == 2:
@@ -120,8 +210,7 @@ class SudokuSolver:
         return self.string()
 
     def solved(self):
-        return all(len(cell.possibilities) == 0
-            for line in self.grid for cell in line)
+        return all(cell.solved() for line in self.grid for cell in line)
 
 
 SUFFIX = os.path.expanduser('~') + '/git/Euler/'
@@ -145,6 +234,9 @@ def q96():
                     print('\nGrid {}: {}'.format(index, solver.solved()))
                     print(str(solver) + '\n')
                     if not solver.solved():
+                        return -1
+
+                    if index == '00':
                         return -1
 
                 string_buffer = []
