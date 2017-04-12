@@ -158,16 +158,23 @@ class SudokuSolver:
         self.update()
 
     def update(self):
-        self.queue = [cell for blocks in self.grid
-            for cell in blocks if cell.solved()]
+        self.queue = [
+            cell for blocks in self.grid
+            for cell in blocks if cell.solved()
+        ]
 
     def solve(self):
+        if not self.queue:
+            print('\nQueue is empty')
+            print(self.string(True))
+            return
+
         print('Clear Queue')
         while self.queue:
             cell = self.queue.pop(0)
 
             print('\nGetting Rid of {}[{}, {}] Queue={}'.format(
-                cell.value, cell.x, cell.y, [a.info() for a in self.queue]))
+                cell.value, cell.x, cell.y, [cell.info() for cell in self.queue]))
             print(self.string(True))
 
             self.rows[cell.y].discard_possibility(cell.value)
@@ -211,6 +218,12 @@ class SudokuSolver:
 
     def solved(self):
         return all(cell.solved() for line in self.grid for cell in line)
+
+    def integrity_check(self):
+        for blocks in (self.columns, self.rows, [cells for square in self.squares for cells in square]):
+            for block in blocks:
+                block.integrity_check()
+
 
 
 SUFFIX = os.path.expanduser('~') + '/git/Euler/'
